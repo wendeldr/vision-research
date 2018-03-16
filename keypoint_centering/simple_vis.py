@@ -130,7 +130,6 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
     ax.set_xlim([-1, 1])
     ax.set_ylim([-1, 1])
 
-
     # show box (off by default)
     ax.add_patch(
         plt.Rectangle((bbox[0], bbox[1]),
@@ -149,13 +148,13 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
         for l in range(len(kp_lines)):
             i1 = kp_lines[l][0]
             i2 = kp_lines[l][1]
-            # # plot lines btw all keypoints except backbone/neck
-            # if kps[2, i1] > kp_thresh and kps[2, i2] > kp_thresh:
-            #     x = [kps[0, i1] * scaler - bbox_x_center, kps[0, i2] * scaler - bbox_x_center]
-            #     y = [kps[1, i1] * scaler - bbox_y_center, kps[1, i2] * scaler - bbox_y_center]
-            #     y = [y[0]*-1, y[1]*-1]
-            #     line = plt.plot(x, y)
-            #     plt.setp(line, color=colors[l], linewidth=1.0, alpha=0.7)
+            # plot lines btw all keypoints except backbone/neck
+            if kps[2, i1] > kp_thresh and kps[2, i2] > kp_thresh:
+                x = [kps[0, i1] * scaler - bbox_x_center, kps[0, i2] * scaler - bbox_x_center]
+                y = [kps[1, i1] * scaler - bbox_y_center, kps[1, i2] * scaler - bbox_y_center]
+                y = [y[0]*-1, y[1]*-1]
+                line = plt.plot(x, y)
+                plt.setp(line, color=colors[l], linewidth=1.0, alpha=0.7)
             
             # plot points
             if kps[2, i1] > kp_thresh:
@@ -167,48 +166,49 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
                 plt.plot(
                     kps[0, i2] * scaler - bbox_x_center, (kps[1, i2] * scaler - bbox_y_center) * -1, '.', color=colors[l],
                     markersize=3.0, alpha=0.7)
-        print(i1)
-        print(i2)
-        print(kps)
-        print(kps[2, :])
-        print(kps[2, i1])
-        print(kps[2, i2])
-        # # add mid shoulder / mid hip for better visualization
-        # mid_shoulder = (
-        #     kps[:2, dataset_keypoints.index('right_shoulder')] +
-        #     kps[:2, dataset_keypoints.index('left_shoulder')]) / 2.0
-        # sc_mid_shoulder = np.minimum(
-        #     kps[2, dataset_keypoints.index('right_shoulder')],
-        #     kps[2, dataset_keypoints.index('left_shoulder')])
-        # mid_hip = (
-        #     kps[:2, dataset_keypoints.index('right_hip')] +
-        #     kps[:2, dataset_keypoints.index('left_hip')]) / 2.0
-        # sc_mid_hip = np.minimum(
-        #     kps[2, dataset_keypoints.index('right_hip')],
-        #     kps[2, dataset_keypoints.index('left_hip')])
-        # if (sc_mid_shoulder > kp_thresh and
-        #         kps[2, dataset_keypoints.index('nose')] > kp_thresh):
-        #     x = [mid_shoulder[0] * scaler - bbox_x_center,
-        #          kps[0, dataset_keypoints.index('nose')] * scaler - bbox_x_center]
-        #     y = [mid_shoulder[1] * scaler - bbox_y_center,
-        #          kps[1, dataset_keypoints.index('nose')] * scaler - bbox_y_center]
-        #     y = [y[0] * -1, y[1] * -1]
-        #     line = plt.plot(x, y)
-        #     plt.setp(
-        #         line, color=colors[len(kp_lines)], linewidth=1.0, alpha=0.7)
-        # if sc_mid_shoulder > kp_thresh and sc_mid_hip > kp_thresh:
-        #     x = [mid_shoulder[0] * scaler - bbox_x_center, mid_hip[0] * scaler - bbox_x_center]
-        #     y = [mid_shoulder[1] * scaler - bbox_y_center, mid_hip[1] * scaler - bbox_y_center]
-        #     y = [y[0] * -1, y[1] * -1]
-        #     line = plt.plot(x, y)
-        #     plt.setp(
-        #         line, color=colors[len(kp_lines) + 1], linewidth=1.0,
-        #         alpha=0.7)
+        # print(i1)
+        # print(i2)
+        # print(kps)
+        # print(kps[2, :])
+        # print(kps[2, i1])
+        # print(kps[2, i2])
+        # add mid shoulder / mid hip for better visualization
+        mid_shoulder = (
+            kps[:2, dataset_keypoints.index('right_shoulder')] +
+            kps[:2, dataset_keypoints.index('left_shoulder')]) / 2.0
+        sc_mid_shoulder = np.minimum(
+            kps[2, dataset_keypoints.index('right_shoulder')],
+            kps[2, dataset_keypoints.index('left_shoulder')])
+        mid_hip = (
+            kps[:2, dataset_keypoints.index('right_hip')] +
+            kps[:2, dataset_keypoints.index('left_hip')]) / 2.0
+        sc_mid_hip = np.minimum(
+            kps[2, dataset_keypoints.index('right_hip')],
+            kps[2, dataset_keypoints.index('left_hip')])
+        if (sc_mid_shoulder > kp_thresh and
+                kps[2, dataset_keypoints.index('nose')] > kp_thresh):
+            x = [mid_shoulder[0] * scaler - bbox_x_center,
+                 kps[0, dataset_keypoints.index('nose')] * scaler - bbox_x_center]
+            y = [mid_shoulder[1] * scaler - bbox_y_center,
+                 kps[1, dataset_keypoints.index('nose')] * scaler - bbox_y_center]
+            y = [y[0] * -1, y[1] * -1]
+            line = plt.plot(x, y)
+            plt.setp(
+                line, color=colors[len(kp_lines)], linewidth=1.0, alpha=0.7)
+        if sc_mid_shoulder > kp_thresh and sc_mid_hip > kp_thresh:
+            x = [mid_shoulder[0] * scaler - bbox_x_center, mid_hip[0] * scaler - bbox_x_center]
+            y = [mid_shoulder[1] * scaler - bbox_y_center, mid_hip[1] * scaler - bbox_y_center]
+            y = [y[0] * -1, y[1] * -1]
+            line = plt.plot(x, y)
+            plt.setp(
+                line, color=colors[len(kp_lines) + 1], linewidth=1.0,
+                alpha=0.7)
 
 
-    # plt.pause(0.1)
-    plt.show()
+    plt.pause(0.1)
+    # plt.show()
     plt.clf()
+    #plt.show()
     # output_name = str(im_name) + '.jpg'
     # fig.savefig('figs/{}'.format(output_name), dpi=dpi)
 
