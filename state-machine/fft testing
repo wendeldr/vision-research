@@ -1,0 +1,21 @@
+Fs = 2  # sampling rate
+Ts = 1.0/Fs # sampling interval
+
+
+t = np.arange(0,len(kpts_inverted),Ts) # time vector
+y = kpt_dict_x['nose']
+
+n = len(y) # length of the signal
+window = np.hamming(n)
+
+k = np.arange(n)
+T = n/Fs
+frq = k/T # two sides frequency range
+frq = frq[range(n//2)] # one side frequency range
+
+Y = np.fft.fft(y*window)/n # fft computing and normalization
+Y = Y[range(n//2)]
+
+plt.plot(frq,abs(Y),'r') # plotting the spectrum
+plt.xlabel('Freq (Hz)')
+plt.ylabel('|Y(freq)|')

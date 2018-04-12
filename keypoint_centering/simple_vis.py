@@ -203,15 +203,14 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
             plt.setp(
                 line, color=colors[len(kp_lines) + 1], linewidth=1.0,
                 alpha=0.7)
-
+    fig.savefig('./figs/keypoint_' + format(asdf, '04d') + '.png')
 
     plt.pause(0.1)
     # plt.show()
     plt.clf()
     #plt.show()
-    # output_name = str(im_name) + '.jpg'
-    # fig.savefig('figs/{}'.format(output_name), dpi=dpi)
 
+asdf = 0
 fig = plt.figure(figsize=(10, 6))
 
 with open('keypoints.pickle', 'rb') as handle:
@@ -220,4 +219,5 @@ with open('keypoints.pickle', 'rb') as handle:
 
 for i, x in enumerate(output):
     viz_keypoints_3D(i, x[1],x[2])
+    asdf+=1
 
