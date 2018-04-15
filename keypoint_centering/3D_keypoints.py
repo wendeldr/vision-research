@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pickle
 import copy
 
-with open('test.pickle', 'rb') as handle:
+with open('keypoints.pickle', 'rb') as handle:
     kpts = pickle.load(handle, encoding='bytes')
 
 keypoints = [

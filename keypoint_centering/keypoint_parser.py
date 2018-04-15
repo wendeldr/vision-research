@@ -4,8 +4,6 @@ import pickle
 
 def get_keypoints():
     """Get the COCO keypoints and their left/right flip coorespondence map."""
-    # Keypoints are not available in the COCO json for the test split, so we
-    # provide them here.
     keypoints = [
         'nose',
         'left_eye',
@@ -76,7 +74,7 @@ def convert_from_cls_format(cls_boxes, cls_keyps):
     return boxes, keyps, classes
 
 
-def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
+def viz_keypoints(im_name, boxes, keypoints=None, thresh=0.6,
         kp_thresh=2, dpi=200, box_alpha=1, dataset=None):
 
     if isinstance(boxes, list):
@@ -113,7 +111,6 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
     if score < thresh:
         return
 
-    #https://stackoverflow.com/questions/1373035/how-do-i-scale-one-rectangle-to-the-maximum-size-possible-within-another-rectang
     scaler = min(0.7 / (bbox[2] - bbox[0]), 0.7 / (bbox[3] - bbox[1]))
 
     bbox = [x * scaler for x in bbox]
@@ -124,7 +121,7 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
             bbox[1]-bbox_y_center,
             bbox[2]-bbox_x_center,
             bbox[3]-bbox_y_center]
-    print(bbox)
+    #print(bbox)
 
     ax = fig.add_subplot(111, aspect='equal')
     ax.set_xlim([-1, 1])
@@ -166,12 +163,7 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
                 plt.plot(
                     kps[0, i2] * scaler - bbox_x_center, (kps[1, i2] * scaler - bbox_y_center) * -1, '.', color=colors[l],
                     markersize=3.0, alpha=0.7)
-        # print(i1)
-        # print(i2)
-        # print(kps)
-        # print(kps[2, :])
-        # print(kps[2, i1])
-        # print(kps[2, i2])
+
         # add mid shoulder / mid hip for better visualization
         mid_shoulder = (
             kps[:2, dataset_keypoints.index('right_shoulder')] +
@@ -203,22 +195,78 @@ def viz_keypoints_3D(im_name, boxes, keypoints=None, thresh=0.6,
             plt.setp(
                 line, color=colors[len(kp_lines) + 1], linewidth=1.0,
                 alpha=0.7)
-    fig.savefig('./figs/keypoint_' + format(asdf, '04d') + '.png')
+    #fig.savefig('./figs/keypoint_' + format(asdf, '04d') + '.png')
 
-    plt.pause(0.1)
-    # plt.show()
+    plt.pause(0.03)
     plt.clf()
-    #plt.show()
+
+def parse_frame_data(im_name, boxes, keypoints, thresh=0.6,
+        kp_thresh=2, center=False):
+
+    if isinstance(boxes, list):
+        boxes, keypoints, classes = convert_from_cls_format(
+            boxes, keypoints)
+
+    if boxes is None or boxes.shape[0] == 0 or max(boxes[:, 4]) < thresh:
+        return (im_name,[],[])
+
+    dataset_keypoints, _ = get_keypoints()
+
+    kp_lines = kp_connections(dataset_keypoints)
+
+    # # Display in largest to smallest order to reduce occlusion
+    areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+    sorted_inds = np.argsort(-areas)
+
+    ## only use largest for our case and return blank if conf score for bbox doesn't meet threshold
+    bbox = boxes[sorted_inds[0], :4]
+    score = boxes[sorted_inds[0], -1]
+
+    if score < thresh:
+        return (im_name,[],[])
+
+    if center:
+        scaler = min(0.7 / (bbox[2] - bbox[0]), 0.7 / (bbox[3] - bbox[1]))
+
+        bbox = [x * scaler for x in bbox]
+        bbox_x_center = bbox[0] + (bbox[2] - bbox[0])/2
+        bbox_y_center = bbox[1] + (bbox[3] - bbox[1])/2
+
+        bbox = [bbox[0]-bbox_x_center,
+                bbox[1]-bbox_y_center,
+                bbox[2]-bbox_x_center,
+                bbox[3]-bbox_y_center]
+
+        #print(bbox)
+        
+        kps = keypoints[sorted_inds[0]]
+
+        new_x=[]
+        for p in kps[0]:
+            new_x.append(p* scaler - bbox_x_center)
+        kps[0]=new_x
+        
+        new_y=[]
+        for p in kps[1]:
+            new_y.append((p* scaler - bbox_y_center))
+        kps[1]=new_y
+
+        return (im_name,bbox,kps)
+    else:
+        kps = keypoints[sorted_inds[0]]
+        return (im_name,bbox,kps)
+
 
 asdf = 0
 fig = plt.figure(figsize=(10, 6))
-
 with open('keypoints.pickle', 'rb') as handle:
     output = pickle.load(handle, encoding='bytes')
     output = sorted(output)
 
-print(output)
+# #visualize keypoints
 # for i, x in enumerate(output):
-#     viz_keypoints_3D(i, x[1],x[2])
+#     viz_keypoints(i, x[1],x[2])
 #     asdf+=1
 
+for i, x in enumerate(output):
+    print(parse_frame_data(i, x[1], x[2], center=False))

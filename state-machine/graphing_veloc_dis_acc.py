@@ -7,12 +7,16 @@ from scipy.interpolate import spline
 import numpy as np
 import copy
 
-
+#read in keypoint file
 with open('test.pickle', 'rb') as handle:
     kpts = pickle.load(handle)
 
+#print(kpts)
+
+# keypoints are upside down so invert them
 kpts_inverted = state_helpers.invert_keypoints(kpts)
 
+# setup keypoint dict
 keypoints = keypoint_helpers.get_keypoint_labels()
 kpt_dict_x = {
     'nose': [],
@@ -34,59 +38,70 @@ kpt_dict_x = {
     'right_ankle': []
 }
 
+# make copy of empty x dict for y points
 kpt_dict_y = copy.deepcopy(kpt_dict_x)
 
+# one datapoint point per frame (fps ~3)
 time = list(range(len(kpts_inverted)))
 
+# fill dicts with points
 for frame in kpts_inverted:
     for i, point in enumerate(frame):
         kpt_dict_x[keypoints[i]].append(point[0])
         kpt_dict_y[keypoints[i]].append(point[1])
 
 
-fig, axes = plt.subplots(9, 2,figsize=(15,30))
-flat_axes = [item for sublist in axes for item in sublist]
 
-for i, ax in enumerate(flat_axes):
-    ax.grid()
-    ax.set_ylim(-.6,.6)
-    ax.set_xlabel('Frame (time ~.4 sec)')
-    ax.set_ylabel('X measure')
-    # add 1 to skip second plot
-    if i == 0:
-         ax.set_title(keypoints[i] + ' x/y displacement')
-    elif i == 1:
-        continue
-    else:
-        ax.set_title(keypoints[i-1] + ' x/y displacement')
+print(kpt_dict_x)
+# print(kpt_dict_y)
 
-fig.tight_layout()
+# # setup graph for displacement over time
+# fig, axes = plt.subplots(9, 2,figsize=(15,30))
+# flat_axes = [item for sublist in axes for item in sublist]
 
-x_smooth = np.linspace(min(time), max(time), 300)
-displacement = {}
+# for i, ax in enumerate(flat_axes):
+#     ax.grid()
+#     ax.set_ylim(-.6,.6)
+#     ax.set_xlabel('Frame (time ~.4 sec)')
+#     ax.set_ylabel('X measure')
+#     # add 1 to skip second plot
+#     if i == 0:
+#          ax.set_title(keypoints[i] + ' x/y displacement')
+#     elif i == 1:
+#         continue
+#     else:
+#         ax.set_title(keypoints[i-1] + ' x/y displacement')
 
-for i, kpt in enumerate(keypoints):
-    xsquared = np.square(np.asarray(kpt_dict_x[kpt]))
-    ysquared = np.square(np.asarray(kpt_dict_y[kpt]))
-    displacement[kpt] = np.sqrt(xsquared + ysquared)
-    y_smooth = spline(time, displacement[kpt], x_smooth)
-    if i < 1:
-        flat_axes[i].plot(x_smooth, y_smooth,'r-')
-    elif i >= 1:
-        flat_axes[i+1].plot(x_smooth, y_smooth,'r-')
+# fig.tight_layout()
+
+# x_smooth = np.linspace(min(time), max(time), 300)
+# displacement = {}
+
+# for i, kpt in enumerate(keypoints):
+#     xsquared = np.square(np.asarray(kpt_dict_x[kpt]))
+#     ysquared = np.square(np.asarray(kpt_dict_y[kpt]))
+#     displacement[kpt] = np.sqrt(xsquared + ysquared)
+#     y_smooth = spline(time, displacement[kpt], x_smooth)
+#     if i < 1:
+#         flat_axes[i].plot(x_smooth, y_smooth,'r-')
+#     elif i >= 1:
+#         flat_axes[i+1].plot(x_smooth, y_smooth,'r-')
         
-fig.savefig('displacement.png')
-for x in time:
-    lines = []
-    for i, kpt in enumerate(keypoints):
-        if i < 1:        
-            lines.append(flat_axes[i].axvline(x,color='m'))
-        elif i >= 1:
-            lines.append(flat_axes[i+1].axvline(x,color='m'))
+# fig.savefig('displacement.png')
 
-    fig.savefig('./displacement/displacement_' + format(x, '04d') + '.png')
-    for x in lines:
-        x.remove()
+
+
+# for x in time:
+#     lines = []
+#     for i, kpt in enumerate(keypoints):
+#         if i < 1:        
+#             lines.append(flat_axes[i].axvline(x,color='m'))
+#         elif i >= 1:
+#             lines.append(flat_axes[i+1].axvline(x,color='m'))
+
+#     fig.savefig('./displacement/displacement_' + format(x, '04d') + '.png')
+#     for x in lines:
+#         x.remove()
 
 # fig, axes = plt.subplots(9, 2,figsize=(15,30))
 # flat_axes = [item for sublist in axes for item in sublist]
