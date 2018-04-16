@@ -16,6 +16,7 @@ namespace Microsoft.Samples.Kinect.BodyBasics
     using System.Windows.Media;
     using System.Windows.Media.Imaging;
     using Microsoft.Kinect;
+    using System.Windows.Media.Media3D;
 
     /// <summary>
     /// Interaction logic for MainWindow
@@ -130,13 +131,18 @@ namespace Microsoft.Samples.Kinect.BodyBasics
         /// <summary>
         /// Current status text to display
         /// </summary>
-        private List<JointType> joint_history = null;
+        private FilterDoubleExponentialData[] m_pHistory = new FilterDoubleExponentialData[25];
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
         /// </summary>
         public MainWindow()
         {
+            for(int x = 0; x < 25; x++)
+            {
+                this.m_pHistory[x] = new FilterDoubleExponentialData();
+            }
+
             // one sensor is currently supported
             this.kinectSensor = KinectSensor.GetDefault();
 
@@ -298,16 +304,158 @@ namespace Microsoft.Samples.Kinect.BodyBasics
             }
         }
 
+
+        private class FilterDoubleExponentialData
+        {
+            public Vector3D m_vRawPosition = new Vector3D(0.0, 0.0, 0.0);
+            public Vector3D m_vFilteredPosition = new Vector3D(0.0, 0.0, 0.0);
+            public Vector3D m_vTrend = new Vector3D(0.0, 0.0, 0.0);
+            public int m_dwFrameCount = 0;
+        };
+
         /// <summary>
         /// Smooths joint
         /// </summary>
         /// <param name="sender">object sending the event</param>
         /// <param name="e">event arguments</param>
-        private void Smooth(JointType jointType)
+        private IReadOnlyDictionary<JointType, Joint> Smooth(IReadOnlyDictionary<JointType, Joint> joints)
         {
-            
+            //small jitters
+            //double Smoothing = 0.5f;
+            //double Correction = 0.5f;
+            //double Prediction = 0.5f;
+            //double JitterRadius = 0.05f;
+            //double MaxDeviationRadius = 0.04f;
+
+            ////med jitters
+            //double Smoothing = 0.5f;
+            //double Correction = 0.1f;
+            //double Prediction = 0.5f;
+            //double JitterRadius = 0.1f;
+            //double MaxDeviationRadius = 0.1f;
+
+            ////large jitters
+            double Smoothing = 0.7f;
+            double Correction = 0.3f;
+            double Prediction = 1.0f;
+            double JitterRadius = 1.0f;
+            double MaxDeviationRadius = 1.0f;
+
+            int id = 0;
+            foreach (JointType jointType in joints.Keys)
+            {
+                Joint joint = joints[jointType];
+                if(joint.TrackingState == TrackingState.Inferred)
+                {
+                    JitterRadius *= 2.0f;
+                    MaxDeviationRadius *= 2.0f;
+                }
+
+                Vector3D newVect = Update(id, joint, Smoothing, Correction, Prediction, JitterRadius, MaxDeviationRadius);
+                joint.Position.X = (float)newVect.X;
+                joint.Position.Y = (float)newVect.Y;
+                joint.Position.Z = (float)newVect.Z;
+
+                id++;
+            }
+
+            return joints;
         }
 
+
+        private Vector3D Update(int JointID, Joint joint, double Smoothing, double Correction, double Prediction, double JitterRadius, double MaxDeviationRadius)
+        {
+            Vector3D vPrevRawPosition;
+            Vector3D vPrevFilteredPosition;
+            Vector3D vPrevTrend;
+            Vector3D vRawPosition;
+            Vector3D vFilteredPosition;
+            Vector3D vPredictedPosition;
+            Vector3D vDiff;
+            Vector3D vTrend;
+            double vLength;
+            double fDiff;
+            Boolean bJointIsValid;
+
+
+
+            vRawPosition = new Vector3D(joint.Position.X, joint.Position.Y, joint.Position.Z);
+            vPrevFilteredPosition = m_pHistory[JointID].m_vFilteredPosition;
+            vPrevTrend = m_pHistory[JointID].m_vTrend;
+            vPrevTrend = m_pHistory[JointID].m_vTrend;
+            vPrevRawPosition = m_pHistory[JointID].m_vRawPosition;
+            bJointIsValid = JointPositionIsValid(vRawPosition);
+
+            if (!bJointIsValid)
+            {
+                m_pHistory[JointID].m_dwFrameCount = 0;
+            }
+
+            // Initial start values
+            if (m_pHistory[JointID].m_dwFrameCount == 0)
+            {
+                vFilteredPosition = vRawPosition;
+                vTrend = new Vector3D(0.0, 0.0, 0.0);
+                m_pHistory[JointID].m_dwFrameCount++;
+            }
+            else if (m_pHistory[JointID].m_dwFrameCount == 1)
+            {
+                vFilteredPosition = (vRawPosition + vPrevRawPosition) * 0.5f;
+                vDiff = vFilteredPosition - vPrevFilteredPosition;
+                vTrend = (vDiff * Correction) + (vPrevTrend * (1.0f - Correction));
+                m_pHistory[JointID].m_dwFrameCount++;
+            }
+            else
+            {
+                // First apply jitter filter
+                vDiff = vRawPosition - vPrevFilteredPosition;
+                vLength = vDiff.Length;
+                fDiff = Math.Abs(vLength);
+
+                if (fDiff <= JitterRadius)
+                {
+                    vFilteredPosition = (vRawPosition * (fDiff / JitterRadius)) + (vPrevFilteredPosition * (1.0f - (fDiff / JitterRadius)));
+                }
+                else
+                {
+                    vFilteredPosition = vRawPosition;
+                }
+                // Now the double exponential smoothing filter
+                vFilteredPosition = (vFilteredPosition * (1.0f - Smoothing)) +  ((vPrevFilteredPosition + vPrevTrend) * Smoothing);
+
+
+                vDiff = vFilteredPosition - vPrevFilteredPosition;
+                vTrend = (vDiff * Correction) + (vPrevTrend * (1.0f - Correction));
+            }
+
+            // Predict into the future to reduce latency
+            vPredictedPosition = vFilteredPosition + (vTrend * Prediction);
+
+            // Check that we are not too far away from raw data
+            vDiff = vPredictedPosition - vRawPosition;
+            vLength = vDiff.Length;
+            fDiff = Math.Abs(vLength);
+
+            if (fDiff > MaxDeviationRadius)
+            {
+                vPredictedPosition = (vPredictedPosition * (MaxDeviationRadius / fDiff)) + (vRawPosition * (1.0f - MaxDeviationRadius / fDiff));
+            }
+
+            // Save the data from this frame
+            m_pHistory[JointID].m_vRawPosition = vRawPosition;
+            m_pHistory[JointID].m_vFilteredPosition = vFilteredPosition;
+            m_pHistory[JointID].m_vTrend = vTrend;
+
+            // Output the data
+           return vPredictedPosition;
+        }
+
+        private bool JointPositionIsValid(Vector3D vJointPosition)
+        {
+            return (vJointPosition.X != 0.0f ||
+                vJointPosition.Y != 0.0f ||
+                vJointPosition.Z != 0.0f);
+        }
         /// <summary>
         /// Handles the body frame data arriving from the sensor
         /// </summary>
@@ -352,9 +500,6 @@ namespace Microsoft.Samples.Kinect.BodyBasics
 
                             IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
-                            // convert the joint points to depth (display) space
-                            Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
-
                             foreach (JointType jointType in joints.Keys)
                             {
                                 // sometimes the depth(Z) of an inferred joint may show as negative
@@ -364,12 +509,21 @@ namespace Microsoft.Samples.Kinect.BodyBasics
                                 {
                                     position.Z = InferredZPositionClamp;
                                 }
+                            }
 
+                            IReadOnlyDictionary<JointType, Joint> smoothedJoints = Smooth(joints);
+
+
+                            // convert the joint points to depth (display) space
+                            Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
+                            foreach (JointType jointType in smoothedJoints.Keys)
+                            {
+                                CameraSpacePoint position = smoothedJoints[jointType].Position;
                                 DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
                                 jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
                             }
 
-                            this.DrawBody(joints, jointPoints, dc, drawPen);
+                            this.DrawBody(smoothedJoints, jointPoints, dc, drawPen);
 
                             this.DrawHand(body.HandLeftState, jointPoints[JointType.HandLeft], dc);
                             this.DrawHand(body.HandRightState, jointPoints[JointType.HandRight], dc);
