@@ -32,3 +32,5 @@ C:\git\vision-research\kinect_v2\kinect_joint_filtering_tests\obj\Debug\BodyBasi
 C:\git\vision-research\kinect_v2\kinect_joint_filtering_tests\obj\Debug\BodyBasics-WPF.csproj.CopyComplete
 C:\git\vision-research\kinect_v2\kinect_joint_filtering_tests\obj\Debug\BodyBasics-WPF.exe
 C:\git\vision-research\kinect_v2\kinect_joint_filtering_tests\obj\Debug\BodyBasics-WPF.pdb
+C:\git\vision-research\kinect_v2\kinect_joint_filtering_tests\bin\AnyCPU\Debug\Newtonsoft.Json.dll
+C:\git\vision-research\kinect_v2\kinect_joint_filtering_tests\bin\AnyCPU\Debug\Newtonsoft.Json.xml

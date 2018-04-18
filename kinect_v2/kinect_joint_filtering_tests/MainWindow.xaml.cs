@@ -17,12 +17,18 @@ namespace Microsoft.Samples.Kinect.BodyBasics
     using System.Windows.Media.Imaging;
     using Microsoft.Kinect;
     using System.Windows.Media.Media3D;
+    using Newtonsoft.Json;
 
     /// <summary>
     /// Interaction logic for MainWindow
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
+
+        private string jsonPath = string.Format(@"C:\git\vision-research\kinect_v2\kinect_joint_filtering_tests\json\output1.json");
+
+        private JsonSerializer serializer = new JsonSerializer();
+
         /// <summary>
         /// Radius of drawn hand circles
         /// </summary>
@@ -138,7 +144,12 @@ namespace Microsoft.Samples.Kinect.BodyBasics
         /// </summary>
         public MainWindow()
         {
-            for(int x = 0; x < 25; x++)
+            using (StreamWriter file = File.CreateText(jsonPath))
+            {
+                file.Write('[');
+            }
+
+            for (int x = 0; x < 25; x++)
             {
                 this.m_pHistory[x] = new FilterDoubleExponentialData();
             }
@@ -302,6 +313,16 @@ namespace Microsoft.Samples.Kinect.BodyBasics
                 this.kinectSensor.Close();
                 this.kinectSensor = null;
             }
+
+            FileStream fs = new FileStream(jsonPath, FileMode.Open, FileAccess.ReadWrite);
+            fs.SetLength(fs.Length - 1);
+            fs.Close();
+
+            using (StreamWriter file = new StreamWriter(jsonPath, append: true))
+            {
+                file.Write(']');
+            }
+
         }
 
 
@@ -345,7 +366,7 @@ namespace Microsoft.Samples.Kinect.BodyBasics
             foreach (JointType jointType in joints.Keys)
             {
                 Joint joint = joints[jointType];
-                if(joint.TrackingState == TrackingState.Inferred)
+                if (joint.TrackingState == TrackingState.Inferred)
                 {
                     JitterRadius *= 2.0f;
                     MaxDeviationRadius *= 2.0f;
@@ -421,7 +442,7 @@ namespace Microsoft.Samples.Kinect.BodyBasics
                     vFilteredPosition = vRawPosition;
                 }
                 // Now the double exponential smoothing filter
-                vFilteredPosition = (vFilteredPosition * (1.0f - Smoothing)) +  ((vPrevFilteredPosition + vPrevTrend) * Smoothing);
+                vFilteredPosition = (vFilteredPosition * (1.0f - Smoothing)) + ((vPrevFilteredPosition + vPrevTrend) * Smoothing);
 
 
                 vDiff = vFilteredPosition - vPrevFilteredPosition;
@@ -447,7 +468,7 @@ namespace Microsoft.Samples.Kinect.BodyBasics
             m_pHistory[JointID].m_vTrend = vTrend;
 
             // Output the data
-           return vPredictedPosition;
+            return vPredictedPosition;
         }
 
         private bool JointPositionIsValid(Vector3D vJointPosition)
@@ -456,6 +477,30 @@ namespace Microsoft.Samples.Kinect.BodyBasics
                 vJointPosition.Y != 0.0f ||
                 vJointPosition.Z != 0.0f);
         }
+
+        public string GetTemporaryDirectory()
+        {
+            string tempFolder = Path.GetTempFileName();
+            File.Delete(tempFolder);
+            Directory.CreateDirectory(tempFolder);
+
+            return tempFolder;
+        }
+
+        public class jointOutput{
+
+            public jointOutput(ulong TrackingId, Dictionary<JointType, Point> depthSpacePoint, IReadOnlyDictionary<JointType, Joint> joints)
+            {
+                this.TrackingId = TrackingId;
+                this.depthSpacePoint = depthSpacePoint;
+                this.joints = joints;
+            }
+
+            public ulong TrackingId;
+            public Dictionary<JointType, Point> depthSpacePoint;
+            public IReadOnlyDictionary<JointType, Joint> joints;
+        };
+
         /// <summary>
         /// Handles the body frame data arriving from the sensor
         /// </summary>
@@ -496,6 +541,15 @@ namespace Microsoft.Samples.Kinect.BodyBasics
 
                         if (body.IsTracked)
                         {
+                            
+                            //using (StreamWriter file = new StreamWriter(jsonPath, append: true))
+                            //{
+                            //    JsonSerializer serializer = new JsonSerializer();
+                            //    //serialize object directly into file stream
+                            //    serializer.Serialize(file, body);
+                            //    file.Write(',');
+                            //}
+
                             this.DrawClippedEdges(body, dc);
 
                             IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
@@ -511,7 +565,9 @@ namespace Microsoft.Samples.Kinect.BodyBasics
                                 }
                             }
 
-                            IReadOnlyDictionary<JointType, Joint> smoothedJoints = Smooth(joints);
+                            //IReadOnlyDictionary<JointType, Joint> smoothedJoints = Smooth(joints);
+
+                            IReadOnlyDictionary<JointType, Joint> smoothedJoints = joints;
 
 
                             // convert the joint points to depth (display) space
@@ -521,6 +577,14 @@ namespace Microsoft.Samples.Kinect.BodyBasics
                                 CameraSpacePoint position = smoothedJoints[jointType].Position;
                                 DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
                                 jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
+                            }
+
+                            using (StreamWriter file = new StreamWriter(jsonPath, append: true))
+                            {
+                                jointOutput output = new jointOutput(body.TrackingId, jointPoints, smoothedJoints);
+                                //serialize object directly into file stream
+                                serializer.Serialize(file, output);
+                                file.Write(',');
                             }
 
                             this.DrawBody(smoothedJoints, jointPoints, dc, drawPen);
